@@ -410,6 +410,15 @@ int main(int argc, char *argv[]) {
         CFG_CUSTOM_MIN_WIDTH_OPT,
         CFG_END()};
 
+    cfg_opt_t file_content_int_opts[] = {
+        CFG_STR("format", "%value", CFGF_NONE),
+        CFG_STR("path", NULL, CFGF_NONE),
+        CFG_INT("threshold", 0, CFGF_NONE),
+        CFG_CUSTOM_ALIGN_OPT,
+        CFG_CUSTOM_COLOR_OPTS,
+        CFG_CUSTOM_MIN_WIDTH_OPT,
+        CFG_END()};
+
     cfg_opt_t opts[] = {
         CFG_STR_LIST("order", "{}", CFGF_NONE),
         CFG_SEC("general", general_opts, CFGF_NONE),
@@ -427,6 +436,7 @@ int main(int argc, char *argv[]) {
         CFG_SEC("ddate", ddate_opts, CFGF_NONE),
         CFG_SEC("load", load_opts, CFGF_NONE),
         CFG_SEC("cpu_usage", usage_opts, CFGF_NONE),
+        CFG_SEC("file_content_int", file_content_int_opts, CFGF_TITLE | CFGF_MULTI),
         CFG_END()};
 
     char *configfile = NULL;
@@ -668,6 +678,12 @@ int main(int argc, char *argv[]) {
             CASE_SEC("cpu_usage") {
                 SEC_OPEN_MAP("cpu_usage");
                 print_cpu_usage(json_gen, buffer, cfg_getstr(sec, "format"));
+                SEC_CLOSE_MAP;
+            }
+
+            CASE_SEC_TITLE("file_content_int") {
+                SEC_OPEN_MAP("file_content_int");
+                print_file_content_int(json_gen, buffer, cfg_getstr(sec, "path"), cfg_getstr(sec, "format"), cfg_getint(sec, "threshold"));
                 SEC_CLOSE_MAP;
             }
         }
