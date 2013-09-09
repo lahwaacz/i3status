@@ -5,7 +5,10 @@
 #include <yajl/yajl_version.h>
 
 #ifdef LINUX
-#include <iwlib.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <linux/wireless.h>
 #else
 #ifndef __FreeBSD__
 #define IW_ESSID_MAX_SIZE 32
@@ -73,38 +76,71 @@ typedef struct {
     double frequency;
 } wireless_info_t;
 
+#ifdef LINUX
+/*
+ * Output a bitrate with proper scaling
+ */
+void iw_print_bitrate(char *buffer, int buflen, int bitrate) {
+    char scale;
+    int divisor;
+
+    if (bitrate >= 1e9) {
+        scale = 'G';
+        divisor = 1e9;
+    } else {
+        if (bitrate >= 1e6) {
+            scale = 'M';
+            divisor = 1e6;
+        } else {
+            scale = 'k';
+            divisor = 1e3;
+        }
+    }
+    snprintf(buffer, buflen, "%g %cb/s", (double)bitrate / divisor, scale);
+}
+#endif
+
 static int get_wireless_info(const char *interface, wireless_info_t *info) {
     memset(info, 0, sizeof(wireless_info_t));
 
 #ifdef LINUX
-    int skfd = iw_sockets_open();
+    int skfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (skfd < 0) {
-        perror("iw_sockets_open");
+        perror("unable to open socket");
         return 0;
     }
 
-    wireless_config wcfg;
-    if (iw_get_basic_config(skfd, interface, &wcfg) < 0) {
+    struct iwreq wrq;
+    strncpy(wrq.ifr_ifrn.ifrn_name, interface, IFNAMSIZ);
+
+    /* Get ESSID */
+    wrq.u.essid.pointer = info->essid;
+    wrq.u.essid.length = IW_ESSID_MAX_SIZE;
+    wrq.u.essid.flags = 0;
+    if (ioctl(skfd, SIOCGIWESSID, &wrq) < 0) {
+        perror("ioctl SIOCGIWESSID failed");
         close(skfd);
         return 0;
     }
 
-    if (wcfg.has_essid && wcfg.essid_on) {
+    /* TODO: why? */
+    if (wrq.u.data.flags) {
         info->flags |= WIRELESS_INFO_FLAG_HAS_ESSID;
-        strncpy(&info->essid[0], wcfg.essid, IW_ESSID_MAX_SIZE);
         info->essid[IW_ESSID_MAX_SIZE] = '\0';
     }
 
-    if (wcfg.has_freq) {
-        info->frequency = wcfg.freq;
-        info->flags |= WIRELESS_INFO_FLAG_HAS_FREQUENCY;
+    /* Get operation mode */
+    if (ioctl(skfd, SIOCGIWMODE, &wrq) < 0) {
+        perror("ioctl SIOCGIWMODE failed");
+        close(skfd);
+        return 0;
     }
 
-    /* If the function iw_get_stats does not return proper stats, the
+    /* If the ioctl SIOCGIWSTATS does not return proper stats, the
      * wifi is considered as down.
-     * Since ad-hoc network does not have theses stats, we need to return
+     * Since ad-hoc network does not have these stats, we need to return
      * here for this mode. */
-    if (wcfg.mode == 1) {
+    if (wrq.u.mode == IW_MODE_ADHOC) {
         close(skfd);
         return 1;
     }
@@ -118,14 +154,20 @@ static int get_wireless_info(const char *interface, wireless_info_t *info) {
      * 8-bit arithmetic on them. Assume absolute values if everything
      * else fails (driver bug). */
 
-    iwrange range;
-    if (iw_get_range_info(skfd, interface, &range) < 0) {
+    struct iw_range range;
+    wrq.u.data.pointer = &range;
+    wrq.u.data.length = sizeof(range);
+    if (ioctl(skfd, SIOCGIWRANGE, &wrq) < 0) {
+        perror("ioctl SIOCGIWRANGE failed");
         close(skfd);
         return 0;
     }
 
-    iwstats stats;
-    if (iw_get_stats(skfd, interface, &stats, &range, 1) < 0) {
+    struct iw_statistics stats;
+    wrq.u.data.pointer = &stats;
+    wrq.u.data.length = sizeof(stats);
+    if (ioctl(skfd, SIOCGIWSTATS, &wrq) < 0) {
+        perror("ioctl SIOCGIWSTATS failed");
         close(skfd);
         return 0;
     }
@@ -189,8 +231,7 @@ static int get_wireless_info(const char *interface, wireless_info_t *info) {
         }
     }
 
-    struct iwreq wrq;
-    if (iw_get_ext(skfd, interface, SIOCGIWRATE, &wrq) >= 0)
+    if (ioctl(skfd, SIOCGIWRATE, &wrq) >= 0)
         info->bitrate = wrq.u.bitrate.value;
 
     close(skfd);

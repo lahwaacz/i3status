@@ -27,7 +27,6 @@ OS:=$(shell uname)
 ifeq ($(OS),Linux)
 CPPFLAGS+=-DLINUX
 CPPFLAGS+=-D_GNU_SOURCE
-LIBS+=-liw
 LIBS+=-lasound
 endif
 
