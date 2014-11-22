@@ -143,7 +143,7 @@ void print_battery_info(yajl_gen json_gen, char *buffer, int number, const char 
         (void)snprintf(percentagebuf, sizeof(percentagebuf), "%.02f%%", percentage_remaining);
     }
 
-    if (present_rate > 0) {
+    if (status != CS_FULL && present_rate > 0) {
         float remaining_time;
         int seconds, hours, minutes, seconds_remaining;
         if (status == CS_CHARGING)
