@@ -554,7 +554,8 @@ int main(int argc, char *argv[]) {
 
         void **per_instance = calloc(cfg_size(cfg, "order"), sizeof(*per_instance));
 
-        while (1) {
+        int max_iters = 20;
+        while (max_iters-- > 0) {
                 if (exit_upon_signal) {
                         fprintf(stderr, "Exiting due to signal.\n");
                         exit(1);
