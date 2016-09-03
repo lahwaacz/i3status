@@ -373,6 +373,14 @@ int main(int argc, char *argv[]) {
         CFG_CUSTOM_MIN_WIDTH_OPT,
         CFG_END()};
 
+    cfg_opt_t meminfo_opts[] = {
+        CFG_STR("format", "%usage", CFGF_NONE),
+        CFG_INT("max_threshold", 90, CFGF_NONE),
+        CFG_CUSTOM_ALIGN_OPT,
+        CFG_CUSTOM_COLOR_OPTS,
+        CFG_CUSTOM_MIN_WIDTH_OPT,
+        CFG_END()};
+
     cfg_opt_t usage_opts[] = {
         CFG_STR("format", "%usage", CFGF_NONE),
         CFG_CUSTOM_ALIGN_OPT,
@@ -436,6 +444,7 @@ int main(int argc, char *argv[]) {
         CFG_SEC("ddate", ddate_opts, CFGF_NONE),
         CFG_SEC("load", load_opts, CFGF_NONE),
         CFG_SEC("cpu_usage", usage_opts, CFGF_NONE),
+        CFG_SEC("meminfo", meminfo_opts, CFGF_NONE),
         CFG_SEC("file_content_int", file_content_int_opts, CFGF_TITLE | CFGF_MULTI),
         CFG_END()};
 
@@ -678,6 +687,12 @@ int main(int argc, char *argv[]) {
             CASE_SEC("cpu_usage") {
                 SEC_OPEN_MAP("cpu_usage");
                 print_cpu_usage(json_gen, buffer, cfg_getstr(sec, "format"));
+                SEC_CLOSE_MAP;
+            }
+
+            CASE_SEC("meminfo") {
+                SEC_OPEN_MAP("meminfo");
+                print_meminfo(json_gen, buffer, cfg_getstr(sec, "format"), cfg_getint(sec, "max_threshold"));
                 SEC_CLOSE_MAP;
             }
 
