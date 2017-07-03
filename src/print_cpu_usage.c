@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <yajl/yajl_gen.h>
 #include <yajl/yajl_version.h>
 
@@ -48,6 +49,7 @@ void print_cpu_usage(yajl_gen json_gen, char *buffer, const char *format) {
     int diff_idle, diff_total, diff_usage;
 
 #if defined(LINUX)
+    int cpus = sysconf(_SC_NPROCESSORS_ONLN);
     static char statpath[512];
     char buf[1024];
     strcpy(statpath, "/proc/stat");
@@ -58,7 +60,7 @@ void print_cpu_usage(yajl_gen json_gen, char *buffer, const char *format) {
     curr_total = curr_user + curr_nice + curr_system + curr_idle;
     diff_idle = curr_idle - prev_idle;
     diff_total = curr_total - prev_total;
-    diff_usage = (diff_total ? (1000 * (diff_total - diff_idle) / diff_total + 5) / 10 : 0);
+    diff_usage = (diff_total ? (cpus * 1000 * (diff_total - diff_idle) / diff_total + 5) / 10 : 0);
     prev_total = curr_total;
     prev_idle = curr_idle;
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
